@@ -1,197 +1,403 @@
-# Free Learning Path Builder — Hackathon MVP
+# PathPilot
 
-A React/Vite frontend + FastAPI agent backend for building evidence-backed weekly learning plans.
+PathPilot is a learning-roadmap builder. A user enters a career goal, current
+skill level, available study time, and target duration. The app creates a
+weekly learning plan with activities and public learning resources.
 
-## Features
+The project has:
 
-- OpenAI-powered structured learning plan generation, with a deterministic fallback when `OPENAI_API_KEY` is not configured.
-- Time-budget validation enforced by backend code.
-- Curated public learning-resource catalog and live URL verification.
-- Conservative `FREE` / `PAID` / `UNKNOWN` classification with evidence.
-- Approval-gated mock scheduling; no real calendar events are created by this starter.
-- Idempotent scheduling: repeated approvals add only missing sessions.
-- TC1–TC4 scenario runner and pytest tests.
-- Optional Supabase persistence; works locally in memory if Supabase variables are omitted.
-- Supabase Google authentication with saved, user-owned roadmaps when configured.
+- A React and Vite frontend.
+- A FastAPI backend.
+- OpenAI roadmap generation with a safe fallback plan.
+- Supabase Authentication and database storage.
+- Google sign-in through Supabase Auth.
+- Saved roadmaps, progress tracking, resource checks, and approval previews.
 
-## 1. Requirements
+This is a hackathon MVP. Scheduling is a mock workflow. It does not create real
+calendar events or enroll users in courses.
 
-- Python 3.10+
-- Node.js 20+ recommended
-- VS Code
-- OpenAI API key (optional for initial smoke test; required for AI-generated plans)
-- Supabase project (optional for initial smoke test; required for persistent cloud storage)
+## How the project works
 
-## 2. Start the backend
+The main flow is:
 
-Open a terminal in VS Code:
+1. The user signs in with Google.
+2. The user enters a goal, skill level, weekly hours, and duration.
+3. The backend creates and validates a roadmap preview.
+4. The user reviews the weeks, activities, and resources.
+5. The user clicks **Add to Saved Roadmaps**.
+6. The backend saves the roadmap, weeks, and resources for that user.
+7. The user can open the roadmap later from **Saved Roadmaps**.
+
+The backend verifies the Supabase access token. It never trusts a user ID sent
+by the browser.
+
+## Project structure
+
+```text
+free-learning-path-builder/
+├── backend/
+│   ├── app/
+│   │   ├── agent.py          # OpenAI generation and fallback plans
+│   │   ├── auth.py           # Supabase token verification
+│   │   ├── main.py           # FastAPI routes
+│   │   ├── models.py         # Request and response validation
+│   │   ├── resources.py      # Resource catalog and URL checks
+│   │   ├── store.py          # Memory and Supabase persistence
+│   │   └── test_cases.py     # TC1–TC4 demo scenarios
+│   ├── tests/
+│   │   ├── test_agent.py
+│   │   ├── test_roadmaps.py
+│   │   └── test_security_config.py
+│   ├── .env.example
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── App.jsx           # Main application UI
+│   │   ├── main.jsx          # React entry point
+│   │   └── styles.css        # Application styles
+│   ├── .env.example
+│   ├── package.json
+│   └── vite.config.js
+├── supabase/
+│   └── schema.sql            # Database tables, indexes, and RLS policies
+└── README.md
+```
+
+## Requirements
+
+Install these tools before starting:
+
+- Python 3.10 or newer.
+- Node.js 20 or newer.
+- npm.
+- A Supabase project for Google login and saved roadmaps.
+- An OpenAI API key for AI-generated plans. The app can use a fallback plan
+  when OpenAI is unavailable.
+
+## Run the backend
+
+Open a terminal in the project root:
 
 ```bash
 cd backend
 python -m venv .venv
-```
-
-macOS/Linux:
-
-```bash
 source .venv/bin/activate
+pip install -r requirements.txt
+cp .env.example .env
 ```
 
-Windows PowerShell:
+On Windows PowerShell, activate the environment with:
 
 ```powershell
 .venv\Scripts\Activate.ps1
 ```
 
-Install packages:
-
-```bash
-pip install -r requirements.txt
-cp .env.example .env
-```
-
-On Windows, copy `.env.example` to `.env` manually if `cp` is unavailable.
-
-Edit `backend/.env`. Add your OpenAI key and Supabase values if available. Never commit `.env`.
-
-The example file contains placeholders only. If a real credential has ever been
-placed in an example file, source file, Git history, log, screenshot, or shared
-archive, revoke it and issue a replacement before using or publishing the
-project. Do not paste credentials into frontend files or variables beginning
-with `VITE_`; Vite exposes those variables to browser code and the production
-bundle.
-
-The repository ignores `.env` files, virtual environments, frontend
-dependencies, build output, secret directories, and common private-key file
-extensions. Keep local credentials in an untracked `backend/.env`, a deployment
-secret manager, or CI secret storage.
-
-Run:
-
-```bash
-uvicorn app.main:app --reload --port 8000
-```
-
-Open http://localhost:8000/docs to inspect the API. Health check: http://localhost:8000/health
-
-## 3. Set up Supabase
-
-1. Create a project at https://supabase.com.
-2. Open SQL Editor.
-3. Run `supabase/schema.sql`.
-4. In Project Settings / API Keys, copy the project URL and a server-side secret key into `backend/.env`.
-5. Keep `SUPABASE_SECRET_KEY` on the backend only. Do not put it in Vite environment variables.
-
-The server-side secret key bypasses RLS. It is used only by FastAPI; never expose it to the browser. Authenticated roadmap routes still enforce the verified Supabase user ID in the backend before every read or write.
-
-The legacy `learning_plans` tables remain for compatibility and are not the
-source of truth for authenticated saved roadmaps. New roadmap data uses the
-owner-scoped `roadmaps`, `roadmap_weeks`, and `roadmap_resources` tables with
-RLS policies. Never trust a user ID supplied directly by the frontend.
-
-If a credential may have been exposed:
-
-1. Revoke or rotate it in the provider console.
-2. Replace the local value in `backend/.env` or the deployment secret store.
-3. Search tracked files and history without printing secret values.
-4. Check provider audit logs and billing for unexpected use.
-5. Re-run the configuration-safety tests before publishing.
-
-## 3a. Configure Google authentication and saved roadmaps
-
-The authenticated roadmap flow requires a Supabase project. Run the additive
-tables and policies in `supabase/schema.sql`; do not drop the legacy tables.
-
-In Supabase Dashboard:
-
-1. Enable **Authentication → Providers → Google**.
-2. Configure the Google OAuth client ID and client secret in Supabase only.
-3. In Google Cloud, keep `http://localhost:5173` under **Authorized
-   JavaScript origins** and add the Supabase callback URL
-   `https://your-project.supabase.co/auth/v1/callback` under **Authorized
-   redirect URIs**. In Supabase **Authentication → URL Configuration**, set
-   `http://localhost:5173` as the Site URL and add it to the allowed redirect
-   URLs. Add the deployed frontend origin and its Supabase callback before
-   production use.
-4. Keep the Supabase secret/service-role key only in `backend/.env`.
-5. Put the project URL and publishable/anon key in `frontend/.env`:
+Edit `backend/.env` with your local values:
 
 ```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=replace-with-your-supabase-anon-key
-VITE_API_BASE_URL=http://localhost:8000
+OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-4o-mini
+
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-server-side-key
+
+FRONTEND_ORIGIN=http://localhost:5173
 ```
 
-The frontend uses Supabase's `signInWithOAuth({ provider: "google" })` flow.
-The backend validates the resulting bearer token with Supabase Auth and uses
-the verified subject for every roadmap operation. A client-supplied `user_id`
-is never accepted as proof of ownership.
+The backend accepts `SUPABASE_SECRET_KEY` as an alternative server-side
+variable, but if both variables are present it uses
+`SUPABASE_SERVICE_ROLE_KEY`.
 
-Google OAuth cannot be verified until the Supabase provider, Google client,
-redirect URLs, and real credentials are configured. Without those settings,
-the app displays a configuration/authentication error rather than a fake login.
+Start FastAPI from the `backend` directory:
 
-## 4. Start the frontend
+```bash
+python -m uvicorn app.main:app --reload --port 8000
+```
 
-Open a second VS Code terminal at the project root:
+Useful backend URLs:
+
+- API documentation: <http://localhost:8000/docs>
+- Health check: <http://localhost:8000/health>
+
+The health response shows whether Supabase and OpenAI are configured. It never
+returns the actual keys.
+
+## Run the frontend
+
+Open a second terminal:
 
 ```bash
 cd frontend
 npm install
 cp .env.example .env
+```
+
+Edit `frontend/.env`:
+
+```env
+VITE_API_BASE_URL=http://localhost:8000
+VITE_SUPABASE_URL=https://your-project.supabase.co
+VITE_SUPABASE_ANON_KEY=your-anon-or-publishable-key
+```
+
+Start Vite:
+
+```bash
 npm run dev
 ```
 
-Open the URL printed by Vite (normally http://localhost:5173).
+Open the URL shown by Vite, usually <http://localhost:5173>.
 
-Set `VITE_API_BASE_URL=http://localhost:8000` in `frontend/.env` if needed.
+Only the Supabase URL and anon/publishable key belong in the frontend. Never
+put an OpenAI key, service-role key, or Supabase server secret in a variable
+starting with `VITE_`. Vite includes `VITE_` variables in the browser bundle.
 
-## 5. Run tests
+## Configure Supabase
 
-From the project root, with the backend virtual environment activated:
+### Database
+
+1. Open the Supabase project dashboard.
+2. Open **SQL Editor**.
+3. Run [`supabase/schema.sql`](./supabase/schema.sql).
+
+The schema adds these authenticated tables:
+
+- `profiles`
+- `roadmaps`
+- `roadmap_weeks`
+- `roadmap_resources`
+
+Weeks belong to a roadmap, and resources belong to a week. Foreign keys use
+cascade deletion. RLS policies limit access to the authenticated roadmap owner.
+The older legacy tables are kept for compatibility.
+
+Do not drop tables or disable RLS.
+
+### Google login
+
+1. In Supabase, open **Authentication → Providers → Google**.
+2. Enable Google.
+3. Add the Google OAuth client ID and client secret.
+4. In Google Cloud, add this JavaScript origin:
+
+   ```text
+   http://localhost:5173
+   ```
+
+5. In Google Cloud, add this authorized redirect URI:
+
+   ```text
+   https://your-project.supabase.co/auth/v1/callback
+   ```
+
+6. In Supabase, open **Authentication → URL Configuration**.
+7. Set the local Site URL to:
+
+   ```text
+   http://localhost:5173
+   ```
+
+8. Add `http://localhost:5173` to the allowed redirect URLs.
+
+Replace the project URL with your real Supabase project URL. Add your deployed
+frontend URL before using the application in production.
+
+Google login cannot be tested from code alone. It must be tested manually after
+the provider, OAuth client, and redirect URLs are configured.
+
+## Main application features
+
+### Roadmap generation
+
+`POST /api/plan` validates the user's goal and creates a roadmap preview. It
+does not save the roadmap automatically.
+
+The response includes:
+
+- Weekly topics.
+- Activities and measurable outcomes.
+- Estimated hours.
+- Resource suggestions.
+- Generation mode: `ai` or `fallback`.
+- Model name when AI generation is used.
+- Planning warnings.
+- Total estimated hours and available hours.
+
+If OpenAI is unavailable, the backend uses a clearly labelled deterministic
+fallback plan. It does not pretend that the fallback came from OpenAI.
+
+### Saving roadmaps
+
+`POST /api/roadmaps` saves the current validated preview. It stores the
+roadmap, every week, and every resource through the backend.
+
+The preview ID is reused for retries. This prevents repeated clicks from
+creating duplicate roadmaps.
+
+After saving, the frontend shows **Saved Successfully** and adds the roadmap
+to the Saved Roadmaps page.
+
+### Saved roadmaps and progress
+
+The application supports:
+
+- Listing the current user's roadmaps.
+- Opening a saved roadmap.
+- Duplicating a roadmap.
+- Archiving and restoring a roadmap.
+- Deleting a roadmap after confirmation.
+- Marking weeks as in progress or completed.
+- Marking resources as completed.
+- Showing roadmap progress.
+
+All roadmap operations require an authenticated Supabase bearer token.
+
+### Resource verification
+
+The project includes a small curated catalog of public resources. It is not a
+general web search engine.
+
+Resource checks report:
+
+- Whether a URL is reachable.
+- Whether pricing looks free, paid, or unknown.
+- Evidence and check time when available.
+
+An `UNKNOWN` result means the user should review the resource manually. A
+successful HTTP response does not prove that a resource is free.
+
+### Approval preview
+
+The Approval page creates a preview of possible study sessions. The user must
+approve the preview before mock sessions are created.
+
+The scheduler is intentionally mocked. No real Google Calendar events or course
+enrollments are created.
+
+## API routes
+
+### Public or health routes
+
+```text
+GET  /health
+GET  /api/resources
+POST /api/resources/verify
+POST /api/test-cases/run-all
+```
+
+### Authenticated roadmap routes
+
+```text
+POST   /api/plan
+POST   /api/roadmaps
+GET    /api/me
+GET    /api/roadmaps
+GET    /api/roadmaps/{roadmap_id}
+PATCH  /api/roadmaps/{roadmap_id}
+POST   /api/roadmaps/{roadmap_id}/duplicate
+DELETE /api/roadmaps/{roadmap_id}
+PATCH  /api/roadmaps/{roadmap_id}/weeks/{week_id}
+PATCH  /api/roadmaps/{roadmap_id}/resources/{resource_id}
+GET    /api/plans/{plan_id}
+POST   /api/approvals/preview
+POST   /api/approvals/{plan_id}
+```
+
+Protected routes return `401` when the bearer token is missing or invalid.
+
+## Run tests and build the frontend
+
+Run the backend tests:
 
 ```bash
 cd backend
+source .venv/bin/activate
 pytest -q
 ```
 
-Run official demo scenarios from the website's Test Lab or with:
+Build the frontend:
 
 ```bash
-cd /Users/apple/Downloads/free-learning-path-builder/backend
-source .venv/bin/activate
-python -m uvicorn app.main:app --reload --port 8000
+cd frontend
+npm run build
+```
 
+Run the four demo scenarios from the backend:
+
+```bash
+cd backend
+source .venv/bin/activate
 curl -X POST http://localhost:8000/api/test-cases/run-all
 ```
 
-## 6. API routes
+The scenarios cover:
 
-- `GET /health`
-- `POST /api/plan`
-- `GET /api/me`
-- `GET /api/roadmaps`
-- `GET /api/roadmaps/{roadmap_id}`
-- `PATCH /api/roadmaps/{roadmap_id}`
-- `POST /api/roadmaps/{roadmap_id}/duplicate`
-- `DELETE /api/roadmaps/{roadmap_id}`
-- `PATCH /api/roadmaps/{roadmap_id}/weeks/{week_id}`
-- `PATCH /api/roadmaps/{roadmap_id}/resources/{resource_id}`
-- `POST /api/resources/verify`
-- `POST /api/approvals/preview`
-- `POST /api/approvals/{plan_id}`
-- `GET /api/plans/{plan_id}`
-- `POST /api/test-cases/run-all`
+- Time feasibility.
+- A resource becoming paid.
+- A broken resource.
+- Idempotent scheduling.
 
-## 7. Two-day build priorities
+The resource simulations use controlled fixtures. They are not proof that
+every external website is currently available or free.
 
-Day 1: run locally, add API keys, test planning, inspect source evidence.
-Day 2: finish TC1–TC4, deploy backend and frontend, capture evidence screenshots, prepare slides.
+## Security notes
 
-## Important limits
+- Keep `backend/.env` and `frontend/.env` untracked.
+- Never commit API keys, OAuth client secrets, access tokens, or service keys.
+- Keep Supabase server credentials in the backend only.
+- Use the frontend anon/publishable key only in frontend environment variables.
+- Do not trust a browser-supplied user ID.
+- Keep Supabase RLS enabled.
+- Rotate any credential that has appeared in a repository, log, screenshot,
+  terminal recording, or shared message.
+- After rotating a credential, update the local `.env` and restart the service.
 
-- Resource discovery uses a small curated catalog; it is not a general web search crawler.
-- Pricing detection is heuristic. `UNKNOWN` means human review is required.
-- Scheduling is deliberately mocked. It demonstrates approval and idempotency without creating real calendar events.
-- Enrollment is not automated in this starter.
-- Do not claim test scenarios passed until you run them and save the actual results.
+The repository's example environment files contain placeholders. They are safe
+templates and must not be replaced with real credentials.
+
+## Known limitations
+
+- The resource catalog is curated and small.
+- Pricing detection is heuristic and may return `UNKNOWN`.
+- OpenAI rate limits or quota errors use the fallback generator.
+- The mock scheduler does not connect to a real calendar.
+- Course enrollment is not implemented.
+- Google OAuth and live Supabase persistence require dashboard configuration and
+  a manual end-to-end test.
+
+## Troubleshooting
+
+### `ModuleNotFoundError: No module named 'app'`
+
+Start Uvicorn from the `backend` directory:
+
+```bash
+cd backend
+python -m uvicorn app.main:app --reload --port 8000
+```
+
+### `503 Authentication is not configured`
+
+Check that `backend/.env` contains `SUPABASE_URL` and a server-side Supabase
+key. Restart FastAPI after changing the file.
+
+### Google says `redirect_uri_mismatch`
+
+Use the Supabase callback URL in Google Cloud:
+
+```text
+https://your-project.supabase.co/auth/v1/callback
+```
+
+Use `http://localhost:5173` only as the JavaScript origin and Supabase Site URL.
+
+### Roadmap generation returns a rate-limit warning
+
+OpenAI may be out of quota or temporarily rate-limited. The app should use the
+fallback roadmap. If saving fails as well, check the Supabase server key and
+confirm that the database schema has been run.
+
+## License
+
+This project is a hackathon MVP. Add a project-specific license before
+redistributing it.
