@@ -101,12 +101,22 @@ OPENAI_MODEL=gpt-4o-mini
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_SERVICE_ROLE_KEY=your-server-side-key
 
-FRONTEND_ORIGIN=http://localhost:5173
+FRONTEND_ORIGINS=http://localhost:5173
 ```
 
 The backend accepts `SUPABASE_SECRET_KEY` as an alternative server-side
 variable, but if both variables are present it uses
 `SUPABASE_SERVICE_ROLE_KEY`.
+
+For a deployed frontend, set the Render environment variable to the exact
+Vercel URL. Multiple origins can be separated with commas:
+
+```env
+FRONTEND_ORIGINS=http://localhost:5173,https://your-project.vercel.app
+```
+
+Do not add a trailing slash to either origin. Redeploy or restart Render after
+changing this value.
 
 Start FastAPI from the `backend` directory:
 

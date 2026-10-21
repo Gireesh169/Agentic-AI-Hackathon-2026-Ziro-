@@ -23,10 +23,13 @@ from .test_cases import run_all_cases, create_test_run_record
 load_dotenv()
 app = FastAPI(title="Free Learning Path Builder API", version="0.1.0")
 
-origin = os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+configured_origins = os.getenv("FRONTEND_ORIGINS") or os.getenv("FRONTEND_ORIGIN", "http://localhost:5173")
+allowed_origins = [item.strip().rstrip("/") for item in configured_origins.split(",") if item.strip()]
+if "http://127.0.0.1:5173" not in allowed_origins:
+    allowed_origins.append("http://127.0.0.1:5173")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin, "http://127.0.0.1:5173"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
